@@ -25,22 +25,20 @@ export class VoxelRenderer {
   }
 
   init() {
-    // Create scene with transparent background for AR overlay
+    // Create scene
     this.scene = new THREE.Scene();
-    this.scene.background = null; // Transparent for overlay mode
+    this.scene.background = new THREE.Color(0x0a0a0f);
 
     // Create camera
     const aspect = this.canvas.clientWidth / this.canvas.clientHeight;
     this.camera = new THREE.PerspectiveCamera(CAMERA_FOV, aspect, 0.1, 1000);
     this.updateCameraPosition();
 
-    // Create renderer with alpha for transparent background
+    // Create renderer
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
       antialias: true,
-      alpha: true, // Enable transparency for AR overlay
     });
-    this.renderer.setClearColor(0x000000, 0); // Fully transparent
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
     this.renderer.shadowMap.enabled = true;

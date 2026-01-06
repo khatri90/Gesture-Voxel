@@ -6,7 +6,6 @@ import { GestureActions } from './gesture/GestureActions.js';
 import { HistoryManager } from './utils/HistoryManager.js';
 import { ColorPalette } from './ui/ColorPalette.js';
 import { ExportManager } from './export/ExportManager.js';
-import { GestureClassifier } from './ml/GestureClassifier.js';
 import { GESTURES, MODES } from './utils/constants.js';
 
 class App {
@@ -21,10 +20,6 @@ class App {
     this.colorPalette = null;
     this.exportManager = null;
 
-    // ML components
-    this.gestureClassifier = null;
-    this.useMLClassifier = true; // Use ML model for gesture recognition
-
     // DOM elements
     this.elements = {};
 
@@ -36,22 +31,11 @@ class App {
       // Get DOM elements
       this.getElements();
 
-      this.updateLoading(5, 'Initializing core components...');
-
       // Initialize core components
       this.initCore();
 
-      this.updateLoading(15, 'Training neural network...');
-
-      // Initialize and train ML classifier
-      await this.initMLClassifier();
-
-      this.updateLoading(85, 'Starting hand tracking...');
-
       // Initialize hand tracking
       await this.initHandTracking();
-
-      this.updateLoading(95, 'Setting up UI...');
 
       // Initialize UI
       this.initUI();
@@ -62,7 +46,7 @@ class App {
       // Hide loading overlay
       this.hideLoading();
 
-      console.log('Gesture Voxel Editor initialized with ML!');
+      console.log('Gesture Voxel Editor initialized!');
     } catch (error) {
       console.error('Initialization error:', error);
       this.showError('Failed to initialize: ' + error.message);
@@ -76,13 +60,10 @@ class App {
       threeCanvas: document.getElementById('threeCanvas'),
       currentGesture: document.getElementById('currentGesture'),
       currentMode: document.getElementById('currentMode'),
-      mlConfidence: document.getElementById('mlConfidence'),
       colorPalette: document.getElementById('colorPalette'),
       tutorialModal: document.getElementById('tutorialModal'),
       exportModal: document.getElementById('exportModal'),
       loadingOverlay: document.getElementById('loadingOverlay'),
-      loadingText: document.getElementById('loadingText'),
-      loadingBar: document.getElementById('loadingBar'),
       tutorialBtn: document.getElementById('tutorialBtn'),
       exportBtn: document.getElementById('exportBtn'),
       screenshotBtn: document.getElementById('screenshotBtn'),
@@ -91,26 +72,14 @@ class App {
       startBtn: document.getElementById('startBtn'),
       exportOBJ: document.getElementById('exportOBJ'),
       exportGLB: document.getElementById('exportGLB'),
-      modelStatus: document.getElementById('modelStatus'),
-      modelAccuracy: document.getElementById('modelAccuracy'),
-      inferenceTime: document.getElementById('inferenceTime'),
     };
-  }
-
-  updateLoading(percent, text) {
-    if (this.elements.loadingBar) {
-      this.elements.loadingBar.style.width = `${percent}%`;
-    }
-    if (this.elements.loadingText) {
-      this.elements.loadingText.textContent = text;
-    }
   }
 
   initCore() {
     // Create voxel world
     this.voxelWorld = new VoxelWorld();
 
-    // Create voxel renderer (with transparent background for AR overlay)
+    // Create voxel renderer
     this.voxelRenderer = new VoxelRenderer(
       this.elements.threeCanvas,
       this.voxelWorld
@@ -119,7 +88,7 @@ class App {
     // Create history manager
     this.historyManager = new HistoryManager();
 
-    // Create gesture recognizer (fallback if ML fails)
+    // Create gesture recognizer
     this.gestureRecognizer = new GestureRecognizer();
 
     // Create gesture actions handler
@@ -134,7 +103,7 @@ class App {
 
     // Set up gesture action listeners
     this.gestureActions.on('modeChange', (mode) => {
-      this.elements.currentMode.textContent = mode.replace(' MODE', '');
+      this.elements.currentMode.textContent = mode;
     });
 
     this.gestureActions.on('colorChange', (colorIndex) => {
@@ -146,28 +115,6 @@ class App {
     this.gestureActions.on('gestureChange', (gesture) => {
       this.elements.currentGesture.textContent = this.getGestureDisplayName(gesture);
     });
-  }
-
-  async initMLClassifier() {
-    // Create ML gesture classifier
-    this.gestureClassifier = new GestureClassifier();
-
-    // Set UI elements for status updates
-    this.gestureClassifier.setUIElements({
-      status: this.elements.modelStatus,
-      accuracy: this.elements.modelAccuracy,
-      inference: this.elements.inferenceTime,
-      loadingBar: this.elements.loadingBar,
-      loadingText: this.elements.loadingText,
-    });
-
-    // Train the model
-    await this.gestureClassifier.train((progress) => {
-      console.log(`Training progress: Epoch ${progress.epoch}/${progress.totalEpochs}`);
-    });
-
-    console.log('ML Classifier trained successfully!');
-    console.log('Model info:', this.gestureClassifier.getModelInfo());
   }
 
   async initHandTracking() {
@@ -192,23 +139,8 @@ class App {
       // Use the first detected hand
       const landmarks = results.multiHandLandmarks[0];
 
-      let gestureData;
-
-      if (this.useMLClassifier && this.gestureClassifier.isTrained) {
-        // Use ML classifier for gesture recognition
-        const mlResult = this.gestureClassifier.predict(landmarks);
-
-        // Convert ML result to gesture data format
-        gestureData = this.convertMLResultToGesture(mlResult, landmarks);
-
-        // Update confidence display
-        if (this.elements.mlConfidence) {
-          this.elements.mlConfidence.textContent = `${(mlResult.confidence * 100).toFixed(0)}%`;
-        }
-      } else {
-        // Fallback to rule-based recognizer
-        gestureData = this.gestureRecognizer.recognize(landmarks);
-      }
+      // Recognize gesture
+      const gestureData = this.gestureRecognizer.recognize(landmarks);
 
       // Get hand movement for camera control
       const handMovement = this.gestureRecognizer.getHandMovement(landmarks);
@@ -218,43 +150,7 @@ class App {
     } else {
       // No hands detected
       this.elements.currentGesture.textContent = 'NO HAND';
-      if (this.elements.mlConfidence) {
-        this.elements.mlConfidence.textContent = '--';
-      }
     }
-  }
-
-  // Convert ML classifier result to gesture data format
-  convertMLResultToGesture(mlResult, landmarks) {
-    const gestureMap = {
-      'none': GESTURES.NONE,
-      'point': GESTURES.POINT,
-      'pinch': GESTURES.PINCH,
-      'fist': GESTURES.FIST,
-      'palm': GESTURES.PALM,
-      'peace': GESTURES.PEACE,
-    };
-
-    // Get position based on gesture type
-    let position;
-    if (mlResult.gesture === 'point' || mlResult.gesture === 'pinch' || mlResult.gesture === 'peace') {
-      position = landmarks[8]; // Index finger tip
-    } else {
-      position = landmarks[0]; // Wrist
-    }
-
-    // Only accept high confidence predictions
-    const confidenceThreshold = 0.6;
-    const gesture = mlResult.confidence >= confidenceThreshold
-      ? gestureMap[mlResult.gesture]
-      : GESTURES.NONE;
-
-    return {
-      gesture: gesture,
-      confidence: mlResult.confidence,
-      position: position,
-      mlPrediction: mlResult,
-    };
   }
 
   initUI() {
@@ -361,7 +257,7 @@ class App {
   showError(message) {
     const loadingContent = this.elements.loadingOverlay.querySelector('.loading-content');
     loadingContent.innerHTML = `
-      <div style="color: #ff4444; font-size: 48px; margin-bottom: 20px;">⚠️</div>
+      <div style="color: #ff4444; font-size: 48px; margin-bottom: 20px;">&#9888;</div>
       <p style="color: #ff4444;">${message}</p>
       <p style="color: #888; margin-top: 10px; font-size: 14px;">
         Please ensure your webcam is connected and you've granted permission.
