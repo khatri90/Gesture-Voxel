@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gesture Voxel Editor - ML Powered</title>
+  <link rel="stylesheet" href="/styles/main.css">
+</head>
+<body>
+  <!-- Main AR Container - Everything overlaid on webcam -->
+  <div class="ar-container">
+    <!-- Webcam Feed (Background Layer) -->
+    <video id="webcam" autoplay playsinline></video>
+
+    <!-- Hand Skeleton Overlay -->
+    <canvas id="handCanvas"></canvas>
+
+    <!-- 3D Voxel Canvas (Transparent, on top) -->
+    <canvas id="threeCanvas"></canvas>
+
+    <!-- UI Overlay -->
+    <div class="ui-overlay">
+      <!-- Top Bar -->
+      <div class="top-bar">
+        <div class="logo">
+          <span class="logo-icon">&#9632;</span>
+          <span class="logo-text">Gesture Voxel Editor</span>
+          <span class="ml-badge">ML</span>
+        </div>
+        <div class="header-actions">
+          <button id="tutorialBtn" class="btn btn-icon" title="Tutorial">?</button>
+          <button id="exportBtn" class="btn btn-icon" title="Export">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </button>
+          <button id="screenshotBtn" class="btn btn-icon" title="Screenshot">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Left Panel - Stats -->
+      <div class="left-panel">
+        <div class="stat-card">
+          <span class="stat-label">Gesture</span>
+          <span id="currentGesture" class="stat-value">WAITING...</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Mode</span>
+          <span id="currentMode" class="stat-value mode-value">PLACE</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Confidence</span>
+          <span id="mlConfidence" class="stat-value">--</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Voxels</span>
+          <span id="voxelCount" class="stat-value">0</span>
+        </div>
+      </div>
+
+      <!-- Right Panel - ML Status -->
+      <div class="right-panel">
+        <div class="ml-status-card">
+          <div class="ml-status-header">
+            <span class="ml-icon">🧠</span>
+            <span>Neural Network</span>
+          </div>
+          <div class="ml-status-body">
+            <div class="ml-stat">
+              <span>Status:</span>
+              <span id="modelStatus" class="status-ready">Loading...</span>
+            </div>
+            <div class="ml-stat">
+              <span>Accuracy:</span>
+              <span id="modelAccuracy">--</span>
+            </div>
+            <div class="ml-stat">
+              <span>Inference:</span>
+              <span id="inferenceTime">--</span>
+            </div>
+          </div>
+        </div>
+        <div class="cursor-info">
+          <span>Cursor: </span>
+          <span id="cursorPos">--</span>
+        </div>
+      </div>
+
+      <!-- Bottom Bar - Color Palette -->
+      <div class="bottom-bar">
+        <div class="color-palette" id="colorPalette">
+          <div class="palette-label">Colors (Peace ✌️ to cycle)</div>
+          <div class="palette-colors"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tutorial Modal -->
+  <div id="tutorialModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🧠 ML-Powered Gesture Controls</h2>
+        <button class="modal-close" id="closeTutorial">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-intro">
+          This app uses a <strong>custom neural network</strong> trained on hand landmark data
+          to recognize your gestures in real-time!
+        </p>
+        <div class="gesture-guide">
+          <div class="gesture-item">
+            <div class="gesture-icon">👆</div>
+            <div class="gesture-info">
+              <strong>Point</strong>
+              <p>Move cursor to highlight voxel position</p>
+            </div>
+          </div>
+          <div class="gesture-item">
+            <div class="gesture-icon">🤏</div>
+            <div class="gesture-info">
+              <strong>Pinch</strong>
+              <p>Place a voxel at cursor position</p>
+            </div>
+          </div>
+          <div class="gesture-item">
+            <div class="gesture-icon">✊</div>
+            <div class="gesture-info">
+              <strong>Fist</strong>
+              <p>Delete voxel at cursor position</p>
+            </div>
+          </div>
+          <div class="gesture-item">
+            <div class="gesture-icon">🖐️</div>
+            <div class="gesture-info">
+              <strong>Open Palm</strong>
+              <p>Move hand to rotate camera</p>
+            </div>
+          </div>
+          <div class="gesture-item">
+            <div class="gesture-icon">✌️</div>
+            <div class="gesture-info">
+              <strong>Peace Sign</strong>
+              <p>Cycle through colors</p>
+            </div>
+          </div>
+          <div class="gesture-item">
+            <div class="gesture-icon">👈</div>
+            <div class="gesture-info">
+              <strong>Swipe Left</strong>
+              <p>Undo last action</p>
+            </div>
+          </div>
+        </div>
+        <div class="ml-info">
+          <h3>🔬 How the ML Works</h3>
+          <p>1. MediaPipe extracts 21 hand landmarks (x, y, z coordinates)</p>
+          <p>2. Landmarks are normalized and fed into a neural network</p>
+          <p>3. The network classifies the gesture with confidence scores</p>
+          <p>4. Trained on 1000+ samples per gesture class</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="startBtn">Start Creating!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Modal -->
+  <div id="exportModal" class="modal">
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h2>Export Creation</h2>
+        <button class="modal-close" id="closeExport">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="export-options">
+          <button class="btn btn-export" id="exportOBJ">
+            <span class="export-format">OBJ</span>
+            <span class="export-desc">Standard 3D format</span>
+          </button>
+          <button class="btn btn-export" id="exportGLB">
+            <span class="export-format">GLB</span>
+            <span class="export-desc">Web-optimized format</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <p id="loadingText">Initializing camera...</p>
+      <div class="loading-progress">
+        <div id="loadingBar" class="loading-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+
+  <!-- MediaPipe Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+
+  <!-- Main App -->
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
