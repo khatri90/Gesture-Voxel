@@ -9,11 +9,13 @@ import {
 } from '../utils/constants.js';
 
 export class GestureActions {
-  constructor(voxelWorld, voxelRenderer, historyManager) {
+  constructor(voxelWorld, voxelRenderer, canvas2dRenderer, historyManager) {
     this.voxelWorld = voxelWorld;
     this.voxelRenderer = voxelRenderer;
+    this.canvas2dRenderer = canvas2dRenderer;
     this.historyManager = historyManager;
 
+    this.is3DMode = false; // Default to 2D
     this.currentColorIndex = 0;
     this.currentMode = MODES.PLACE;
     this.lastActionTime = 0;
@@ -49,32 +51,40 @@ export class GestureActions {
         this.handlePoint(position);
         break;
 
-      case GESTURES.PINCH:
-        this.handlePinch(position);
-        break;
+      default:
+        // Stop 2D drawing if any other gesture (or no gesture) occurs
+        this.canvas2dRenderer?.stopDrawing();
 
-      case GESTURES.FIST:
-        this.handleFist(position);
-        break;
+        // Continue with other handlers
+        switch (gesture) {
+          case GESTURES.PINCH:
+            this.handlePinch(position);
+            break;
 
-      case GESTURES.PALM:
-        this.handlePalm(handMovement);
-        break;
+          case GESTURES.FIST:
+            this.handleFist(position);
+            break;
 
-      case GESTURES.PEACE:
-        this.handlePeace();
-        break;
+          case GESTURES.PALM:
+            this.handlePalm(handMovement);
+            break;
 
-      case GESTURES.SWIPE_LEFT:
-        this.handleSwipeLeft();
-        break;
+          case GESTURES.PEACE:
+            this.handlePeace();
+            break;
 
-      case GESTURES.SWIPE_RIGHT:
-        this.handleSwipeRight();
-        break;
+          case GESTURES.SWIPE_LEFT:
+            this.handleSwipeLeft();
+            break;
 
-      case GESTURES.NONE:
-        this.handleNone();
+          case GESTURES.SWIPE_RIGHT:
+            this.handleSwipeRight();
+            break;
+
+          case GESTURES.NONE:
+            this.handleNone();
+            break;
+        }
         break;
     }
 
@@ -99,8 +109,16 @@ export class GestureActions {
     return gridPos;
   }
 
-  // Handle pointing gesture - move cursor
+  // Handle pointing gesture - move cursor and draw
   handlePoint(position) {
+    if (!this.is3DMode) {
+      // 2D Drawing Mode
+      const hexColor = '#' + COLORS[this.currentColorIndex].toString(16).padStart(6, '0');
+      this.canvas2dRenderer.draw(position.x, position.y, hexColor);
+      return;
+    }
+
+    // 3D Mode
     this.setMode(MODES.PLACE);
     this.isOrbitActive = false;
 
@@ -114,6 +132,16 @@ export class GestureActions {
         gridPos.z,
         this.currentColorIndex
       );
+
+      // Draw/Write if enough time has passed (faster than click debounce for smooth drawing)
+      if (this.canPerformAction(this.lastActionTime, 50)) {
+        // Save state for undo (only if we're mostly adding new stuff to avoid spamming history on same voxel)
+        // Ideally we'd batch these, but for now simple save per voxel.
+        this.historyManager.saveState(this.voxelWorld.getState());
+
+        this.voxelWorld.addVoxel(gridPos.x, gridPos.y, gridPos.z, this.currentColorIndex);
+        this.lastActionTime = Date.now();
+      }
     } else {
       this.voxelRenderer.setCursorPosition(null);
     }
@@ -246,6 +274,14 @@ export class GestureActions {
     if (this.currentMode !== mode) {
       this.currentMode = mode;
       this.notifyListeners('modeChange', mode);
+    }
+  }
+
+  set3DMode(is3D) {
+    this.is3DMode = is3D;
+    // Reset state if needed
+    if (!is3D) {
+      this.voxelRenderer.setCursorPosition(null);
     }
   }
 

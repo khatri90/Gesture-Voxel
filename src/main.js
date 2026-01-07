@@ -1,5 +1,6 @@
 import { VoxelWorld } from './core/VoxelWorld.js';
 import { VoxelRenderer } from './core/VoxelRenderer.js';
+import { Canvas2DRenderer } from './core/Canvas2DRenderer.js';
 import { HandTracker } from './gesture/HandTracker.js';
 import { GestureRecognizer } from './gesture/GestureRecognizer.js';
 import { GestureActions } from './gesture/GestureActions.js';
@@ -13,12 +14,16 @@ class App {
     // Core components
     this.voxelWorld = null;
     this.voxelRenderer = null;
+    this.canvas2dRenderer = null;
     this.handTracker = null;
     this.gestureRecognizer = null;
     this.gestureActions = null;
     this.historyManager = null;
     this.colorPalette = null;
     this.exportManager = null;
+
+    // State
+    this.is3DMode = false; // Default to 2D
 
     // DOM elements
     this.elements = {};
@@ -33,6 +38,9 @@ class App {
 
       // Initialize core components
       this.initCore();
+
+      // Set initial state
+      this.updateModeUI();
 
       // Initialize hand tracking
       await this.initHandTracking();
@@ -58,6 +66,7 @@ class App {
       webcam: document.getElementById('webcam'),
       handCanvas: document.getElementById('handCanvas'),
       threeCanvas: document.getElementById('threeCanvas'),
+      canvas2d: document.getElementById('canvas2d'),
       currentGesture: document.getElementById('currentGesture'),
       currentMode: document.getElementById('currentMode'),
       colorPalette: document.getElementById('colorPalette'),
@@ -65,6 +74,7 @@ class App {
       exportModal: document.getElementById('exportModal'),
       loadingOverlay: document.getElementById('loadingOverlay'),
       tutorialBtn: document.getElementById('tutorialBtn'),
+      modeToggleBtn: document.getElementById('modeToggleBtn'),
       exportBtn: document.getElementById('exportBtn'),
       screenshotBtn: document.getElementById('screenshotBtn'),
       closeTutorial: document.getElementById('closeTutorial'),
@@ -85,6 +95,9 @@ class App {
       this.voxelWorld
     );
 
+    // Create 2D renderer
+    this.canvas2dRenderer = new Canvas2DRenderer(this.elements.canvas2d);
+
     // Create history manager
     this.historyManager = new HistoryManager();
 
@@ -95,8 +108,12 @@ class App {
     this.gestureActions = new GestureActions(
       this.voxelWorld,
       this.voxelRenderer,
+      this.canvas2dRenderer,
       this.historyManager
     );
+
+    // Initial sync
+    this.gestureActions.set3DMode(this.is3DMode);
 
     // Create export manager
     this.exportManager = new ExportManager(this.voxelWorld, this.voxelRenderer);
@@ -115,6 +132,37 @@ class App {
     this.gestureActions.on('gestureChange', (gesture) => {
       this.elements.currentGesture.textContent = this.getGestureDisplayName(gesture);
     });
+  }
+
+  updateModeUI() {
+    if (this.is3DMode) {
+      this.elements.threeCanvas.style.display = 'block';
+      this.elements.canvas2d.style.display = 'none';
+      this.elements.modeToggleBtn.textContent = 'MODE [3D]';
+      this.elements.modeToggleBtn.title = 'Switch to 2D Mode';
+      this.elements.currentMode.textContent = '3D_VOXEL_MODE';
+
+      // Update export button visibility (only makes sense in 3D)
+      this.elements.exportBtn.style.display = 'inline-block';
+
+      // Update cursor info visibility (if we wanted to toggle IDs, but keeping them visible is fine)
+
+    } else {
+      this.elements.threeCanvas.style.display = 'none';
+      this.elements.canvas2d.style.display = 'block';
+      this.elements.modeToggleBtn.textContent = 'MODE [2D]';
+      this.elements.modeToggleBtn.title = 'Switch to 3D Mode';
+      this.elements.currentMode.textContent = '2D_BLOCK_MODE';
+
+      // Hide export button in 2D
+      this.elements.exportBtn.style.display = 'none';
+    }
+  }
+
+  toggleMode() {
+    this.is3DMode = !this.is3DMode;
+    this.updateModeUI();
+    this.gestureActions.set3DMode(this.is3DMode);
   }
 
   async initHandTracking() {
@@ -165,6 +213,11 @@ class App {
     // Tutorial button
     this.elements.tutorialBtn.addEventListener('click', () => {
       this.showTutorial();
+    });
+
+    // Mode Toggle button
+    this.elements.modeToggleBtn.addEventListener('click', () => {
+      this.toggleMode();
     });
 
     // Close tutorial

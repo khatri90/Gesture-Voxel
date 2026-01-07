@@ -27,7 +27,7 @@ export class VoxelRenderer {
   init() {
     // Create scene
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0a0a0f);
+    this.scene.background = null; // Transparent background for AR
 
     // Create camera
     const aspect = this.canvas.clientWidth / this.canvas.clientHeight;
@@ -38,6 +38,7 @@ export class VoxelRenderer {
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
       antialias: true,
+      alpha: true, // Enable transparency
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
@@ -160,16 +161,34 @@ export class VoxelRenderer {
   setupInstancedMesh() {
     // Create geometry and material for voxels
     const geometry = new THREE.BoxGeometry(VOXEL_SIZE * 0.95, VOXEL_SIZE * 0.95, VOXEL_SIZE * 0.95);
-    const material = new THREE.MeshStandardMaterial({
-      roughness: 0.3,
-      metalness: 0.1,
+
+    // Cyber/Tron Material (Transparent with Emissive)
+    const material = new THREE.MeshPhongMaterial({
+      color: 0xffffff, // Tinted by instanceColor
+      emissive: 0x00f0ff,
+      emissiveIntensity: 0.2,
+      transparent: true,
+      opacity: 0.8,
+      shininess: 100
     });
 
-    // Create instanced mesh
+    // Create instanced mesh (Inner Cubes)
     this.instancedMesh = new THREE.InstancedMesh(geometry, material, MAX_VOXELS);
     this.instancedMesh.castShadow = true;
     this.instancedMesh.receiveShadow = true;
     this.instancedMesh.count = 0;
+
+    // Create Wireframe Instanced Mesh (Outer Edges)
+    // We use a slightly larger box for the wireframe to prevent z-fighting
+    const wireGeo = new THREE.BoxGeometry(VOXEL_SIZE * 0.95, VOXEL_SIZE * 0.95, VOXEL_SIZE * 0.95);
+    const wireMat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.3
+    });
+    this.wireframeMesh = new THREE.InstancedMesh(wireGeo, wireMat, MAX_VOXELS);
+    this.wireframeMesh.count = 0;
 
     // Initialize color array
     this.colorArray = new Float32Array(MAX_VOXELS * 3);
@@ -179,6 +198,7 @@ export class VoxelRenderer {
     );
 
     this.scene.add(this.instancedMesh);
+    this.scene.add(this.wireframeMesh);
   }
 
   setupCursor() {
@@ -225,6 +245,11 @@ export class VoxelRenderer {
     this.instancedMesh.count = voxels.length;
     this.instancedMesh.instanceMatrix.needsUpdate = true;
     this.instancedMesh.instanceColor.needsUpdate = true;
+
+    // Sync wireframe mesh
+    this.wireframeMesh.count = voxels.length;
+    this.wireframeMesh.instanceMatrix = this.instancedMesh.instanceMatrix; // Share matrix buffer!
+    this.wireframeMesh.instanceMatrix.needsUpdate = true;
 
     // Update voxel count display
     const countElement = document.getElementById('voxelCount');

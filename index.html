@@ -1,34 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gesture Voxel Editor</title>
   <link rel="stylesheet" href="/styles/main.css">
 </head>
+
 <body>
   <!-- Header -->
+  <!-- Header / HUD -->
   <header class="header">
     <div class="logo">
-      <span class="logo-icon">&#9632;</span>
-      <span class="logo-text">Gesture Voxel Editor</span>
+      <span class="logo-text">BIO_SYNC: GESTURE_ARCHITECT_v2.0</span>
     </div>
+
+    <div class="hud-stat">
+      STATE: <span id="currentMode" class="hud-val">INITIALIZING</span>
+    </div>
+
+    <div class="hud-stat">
+      GESTURE: <span id="currentGesture" class="hud-val">--</span>
+    </div>
+
+    <div class="hud-stat">
+      VOXELS: <span id="voxelCount" class="hud-val">0</span>
+    </div>
+
+    <div class="hud-stat">
+      CURSOR: <span id="cursorPos" class="hud-val">--</span>
+    </div>
+
     <div class="header-actions">
-      <button id="tutorialBtn" class="btn btn-icon" title="Tutorial">?</button>
-      <button id="exportBtn" class="btn btn-icon" title="Export">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="7 10 12 15 17 10"/>
-          <line x1="12" y1="15" x2="12" y2="3"/>
-        </svg>
-      </button>
-      <button id="screenshotBtn" class="btn btn-icon" title="Screenshot">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-          <circle cx="8.5" cy="8.5" r="1.5"/>
-          <polyline points="21 15 16 10 5 21"/>
-        </svg>
-      </button>
+      <button id="modeToggleBtn" class="btn">MODE [2D/3D]</button>
+      <button id="exportBtn" class="btn">EXPORT</button>
+      <button id="tutorialBtn" class="btn">HELP</button>
+      <!-- Hidden screenshot button to keep JS happy if needed, or just remove if we don't care -->
+      <button id="screenshotBtn" class="btn" style="display:none;">SHOT</button>
+    </div>
+
+    <div style="font-size: 10px; margin-top: 5px;" class="text-warn">
+      SYSTEM: 2D_BLOCK_MODE_ACTIVE
     </div>
   </header>
 
@@ -38,35 +51,17 @@
     <div class="webcam-panel">
       <video id="webcam" autoplay playsinline></video>
       <canvas id="handCanvas"></canvas>
-      <div class="gesture-indicator">
-        <span class="gesture-label">Gesture:</span>
-        <span id="currentGesture" class="gesture-value">WAITING...</span>
-      </div>
-      <div class="mode-indicator">
-        <span id="currentMode">PLACE MODE</span>
-      </div>
     </div>
 
     <!-- 3D Canvas Panel -->
     <div class="canvas-panel">
-      <canvas id="threeCanvas"></canvas>
+      <canvas id="canvas2d" class="canvas-layer"></canvas>
+      <canvas id="threeCanvas" class="canvas-layer"></canvas>
 
       <!-- Color Palette -->
       <div class="color-palette" id="colorPalette">
         <div class="palette-label">Colors</div>
         <div class="palette-colors"></div>
-      </div>
-
-      <!-- Cursor Position -->
-      <div class="cursor-info" id="cursorInfo">
-        <span>Cursor: </span>
-        <span id="cursorPos">--</span>
-      </div>
-
-      <!-- Voxel Count -->
-      <div class="voxel-count">
-        <span>Voxels: </span>
-        <span id="voxelCount">0</span>
       </div>
     </div>
   </main>
@@ -161,11 +156,12 @@
   </div>
 
   <!-- MediaPipe Scripts -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
 
   <!-- Main App -->
   <script type="module" src="/src/main.js"></script>
 </body>
+
 </html>
